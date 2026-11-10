@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="마이크로비트 웹 블루투스 연동 우주 보드게임 - 드림호(Dream) 작전">
+<title>드림호 웹 블루투스 - 지구 탈출 프로젝트</title>
+<style>
+  :root{
+    --bg:#0e1330; --panel:#171d45; --panel2:#1f2757; --text:#eef1ff; --muted:#9aa4d6;
+    --good:#2fbf71; --bad:#ef5b5b; --rest:#4a8cff; --again:#f5a623; --goal:#9b7bff;
+    --p0:#2fbf71; --p1:#ef5b5b; --teal:#38d8c4;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Pretendard","Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+    background:radial-gradient(ellipse at top,#1b2260 0%,var(--bg) 60%);color:var(--text);min-height:100vh}
+
+  /* ---------- 상단 바 (블루투스) ---------- */
+  .topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    justify-content:space-between;padding:10px 20px;background:#0b1029e6;backdrop-filter:blur(10px);
+    border-bottom:1px solid #2a3370}
+  .brand{font-weight:900;font-size:17px;letter-spacing:-.3px;white-space:nowrap}
+  .brand span{color:var(--teal)}
+  .bt-area{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .badge{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:800;
+    padding:8px 13px;border-radius:999px;background:#232b60;color:var(--muted);border:1px solid #333d7d;
+    white-space:nowrap}
+  .badge .led{width:9px;height:9px;border-radius:50%;background:#6b76b5;box-shadow:0 0 0 0 #6b76b500}
+  .badge.on{color:#c8ffe9;background:#12392f;border-color:#2fbf71}
+  .badge.on .led{background:#3ce08a;box-shadow:0 0 10px #3ce08a}
+  .badge.wait{color:#ffe7b8;background:#3a2f16;border-color:#f5a623}
+  .badge.wait .led{background:#f5a623;animation:blink 1s infinite}
+  .badge.err{color:#ffd3d3;background:#3a1f27;border-color:#ef5b5b}
+  .badge.err .led{background:#ef5b5b}
+  @keyframes blink{50%{opacity:.25}}
+  .bt-btn{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#3a48a8,#5b8cff);
+    color:#fff;font-size:14px;font-weight:900;padding:11px 16px;border-radius:12px;
+    box-shadow:0 4px 16px #3a48a866;border:0;cursor:pointer;font-family:inherit}
+  .bt-btn:hover{filter:brightness(1.08)}
+  .bt-btn.ghost{background:#232b60;box-shadow:none;border:1px solid #3a4584;color:#dfe4ff}
+  .bt-btn:disabled{opacity:.6;cursor:progress}
+  .linkline{font-size:12px;color:var(--muted);max-width:100%}
+  .linkline b{color:var(--teal)}
+
+  .wrap{display:flex;gap:20px;padding:20px;max-width:1300px;margin:0 auto;align-items:flex-start}
+  .side{width:340px;flex-shrink:0;background:var(--panel);border-radius:18px;padding:20px;box-shadow:0 8px 30px #0006}
+  .side h1{margin:0 0 4px;font-size:25px;line-height:1.25;text-align:center}
+  .side .sub{text-align:center;color:var(--muted);font-size:13.5px;margin-bottom:14px}
+  .player{border:2px solid transparent;background:var(--panel2);border-radius:14px;padding:12px 14px;margin-bottom:10px;transition:.2s}
+  .player.active{border-color:var(--c);box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 30%,transparent)}
+  .player .name{font-weight:800;font-size:17px;display:flex;align-items:center;gap:8px}
+  .dot{width:16px;height:16px;border-radius:50%;background:var(--c);display:inline-block}
+  .player .state{color:var(--muted);font-size:14px;margin-top:4px}
+  label.small{display:block;color:var(--muted);font-size:13px;margin:12px 0 6px}
+  .rowo{display:flex;gap:8px}
+  #dice{width:84px;font-size:34px;font-weight:800;text-align:center;border-radius:12px;border:2px solid #3a4584;background:#0f1538;color:#fff;padding:6px 0}
+  button{font-family:inherit;cursor:pointer;border:0;border-radius:12px;font-weight:800}
+  #go{flex:1;background:#5b8cff;color:#fff;font-size:19px}
+  #go:disabled{opacity:.45;cursor:not-allowed}
+  #rollBtn{width:100%;margin-top:8px;background:linear-gradient(135deg,#2fbf71,#38d8c4);color:#08251d;font-size:17px;padding:13px}
+  #rollBtn:disabled{opacity:.45;cursor:not-allowed}
+  #reset,#sound{width:100%;margin-top:8px;background:#2a3370;color:var(--text);padding:11px;font-size:14px}
+  .opt{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--muted);margin-top:12px;line-height:1.45}
+  .opt input{margin-top:3px}
+  #msg{margin-top:12px;background:#0f1538;border-radius:12px;padding:12px;font-size:15px;min-height:64px;line-height:1.5}
+  #ask{display:none;margin-top:10px;background:#2b2150;border:2px solid var(--again);border-radius:12px;padding:12px}
+  #ask p{margin:0 0 8px;font-size:14.5px;line-height:1.45}
+  #ask .hint{font-size:12.5px;color:#c9b6ff;margin:0 0 10px}
+  #ask button{padding:10px 14px;font-size:15px;margin-right:6px}
+  #askYes{background:var(--good);color:#fff}
+  #askNo{background:var(--bad);color:#fff}
+  .prog{height:9px;border-radius:6px;background:#161a3d;overflow:hidden;margin:6px 0 10px}
+  .prog i{display:block;height:100%;width:0;
+    background:linear-gradient(90deg,#38d8c4,#2fbf71);border-radius:6px;transition:width .18s}
+  #log{margin-top:12px;max-height:132px;overflow:auto;font-size:13px;color:var(--muted);line-height:1.6}
+  .board{flex:1;display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+  .cell{position:relative;aspect-ratio:1/0.92;background:#1a2150;border:2px solid #2d3877;border-radius:14px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:4px}
+  .cell .n{position:absolute;top:5px;left:8px;font-size:12px;color:#7d89c9;font-weight:700}
+  .cell .ic{font-size:clamp(22px,3.2vw,38px);line-height:1}
+  .cell .lb{font-size:clamp(10px,1.1vw,13px);font-weight:700;margin-top:3px;line-height:1.2}
+  .cell.good{border-color:var(--good);background:#16352f}
+  .cell.bad{border-color:var(--bad);background:#3a1f33}
+  .cell.rest{border-color:var(--rest);background:#182d5c}
+  .cell.again{border-color:var(--again);background:#3a3020}
+  .cell.start{border-color:#59d4c0;background:#143a3f}
+  .cell.goal{border-color:var(--goal);background:#2c2563}
+  .tokens{position:absolute;bottom:4px;right:6px;display:flex;gap:2px}
+  .token{width:clamp(20px,2.6vw,32px);height:clamp(20px,2.6vw,32px);border-radius:50%;background:var(--c);
+    display:flex;align-items:center;justify-content:center;font-size:clamp(12px,1.6vw,18px);border:2px solid #fff;
+    box-shadow:0 2px 6px #0008;animation:pop .25s}
+  @keyframes pop{from{transform:scale(.4)}to{transform:scale(1)}}
+  #win{display:none;position:fixed;inset:0;background:#000b;align-items:center;justify-content:center;z-index:40}
+  #win .box{background:var(--panel);padding:36px 44px;border-radius:22px;text-align:center;max-width:90vw}
+  #win h2{font-size:34px;margin:0 0 10px}
+  #win p{color:var(--muted);font-size:18px;margin:0 0 20px}
+  #win button{background:#5b8cff;color:#fff;font-size:18px;padding:12px 28px}
+
+  /* ---------- 수신 토스트 ---------- */
+  #toast{position:fixed;left:50%;top:76px;transform:translate(-50%,-16px);z-index:60;opacity:0;
+    pointer-events:none;transition:.22s;background:#12392f;border:1px solid #2fbf71;color:#d6ffee;
+    padding:10px 18px;border-radius:999px;font-weight:900;font-size:15px;box-shadow:0 10px 30px #0008}
+  #toast.show{opacity:1;transform:translate(-50%,0)}
+  #toast.warn{background:#3a2f16;border-color:#f5a623;color:#ffe7b8}
+
+  /* ---------- 코딩 가이드 모달 ---------- */
+  #guide{display:none;position:fixed;inset:0;background:#060a1ee8;z-index:50;overflow:auto;padding:28px 16px}
+  #guide .sheet{max-width:980px;margin:0 auto;background:#121838;border:1px solid #39457f;border-radius:20px;
+    padding:26px 30px 30px;box-shadow:0 20px 60px #000a}
+  #guide h2{margin:0 0 4px;font-size:26px}
+  #guide .gsub{color:var(--muted);font-size:14px;margin-bottom:18px}
+  #guide h3{font-size:17px;margin:22px 0 8px;color:var(--teal)}
+  #guide h3 .step{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;
+    border-radius:8px;background:var(--teal);color:#062; font-size:14px;margin-right:8px;vertical-align:-3px}
+  #guide p,#guide li{font-size:14.5px;line-height:1.65;color:#dfe4ff}
+  #guide ul,#guide ol{margin:6px 0 6px 20px;padding:0}
+  #guide code{background:#0b1029;border:1px solid #333d7d;border-radius:6px;padding:1px 6px;font-size:13.5px;color:#9ff7e6}
+  #guide pre{background:#0b1029;border:1px solid #333d7d;border-radius:12px;padding:14px 16px;overflow:auto;
+    font-size:13px;line-height:1.6;color:#c8d3ff}
+  #guide .blocks{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin:10px 0}
+  #guide .blk{background:#171d45;border:1px solid #39457f;border-radius:12px;padding:12px 14px}
+  #guide .blk b{color:#ffd88a;font-size:13.5px}
+  #guide .blk p{margin:6px 0 0;font-size:13.5px;color:#c9d1ff}
+  #guide .close{position:sticky;top:0;float:right;background:#232b60;color:#dfe4ff;padding:9px 14px;font-size:14px}
+  #guide table{width:100%;border-collapse:collapse;margin:8px 0}
+  #guide th,#guide td{border:1px solid #333d7d;padding:8px 10px;font-size:13.5px;text-align:left}
+  #guide th{background:#1a2150;color:var(--teal)}
+  .warnbox{background:#3a2f16;border:1px solid #f5a623;border-radius:12px;padding:12px 14px;margin:12px 0}
+  .warnbox p{color:#ffe7b8}
+
+  @media(max-width:900px){
+    .wrap{flex-direction:column;padding:12px}
+    .side{width:100%}
+    .board{width:100%;gap:6px}
+    .brand{font-size:15px}
+    .bt-btn{font-size:13px;padding:10px 13px}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">🚀 드림호(Dream) 작전 <span>· 웹 블루투스</span></div>
+  <div class="bt-area">
+    <span class="badge" id="btBadge"><i class="led"></i><span id="btBadgeText">블루투스 연결 안 됨</span></span>
+    <button class="bt-btn" id="btConnect">📡 마이크로비트 블루투스 연결</button>
+    <button class="bt-btn ghost" id="guideBtn">🎓 코딩 가이드</button>
+  </div>
+</header>
+<div class="linkline" id="lastCmd" style="text-align:right;padding:4px 20px 0;max-width:1300px;margin:0 auto;">최근 수신 신호: <b>없음</b></div>
+
+<div class="wrap">
+  <aside class="side">
+    <h1>🌍 지구 탈출 프로젝트<br>드림호(Dream) 작전</h1>
+    <div class="sub">소행성 충돌 D-day! 새 행성까지 먼저 도착하라</div>
+
+    <div class="player active" id="pl0" style="--c:var(--p0)">
+      <div class="name"><span class="dot"></span><span id="nm0">1팀 · 초록 우주선</span></div>
+      <div class="state" id="st0">출발 대기</div>
+    </div>
+    <div class="player" id="pl1" style="--c:var(--p1)">
+      <div class="name"><span class="dot"></span><span id="nm1">2팀 · 빨간 우주선</span></div>
+      <div class="state" id="st1">출발 대기</div>
+    </div>
+
+    <label class="small" for="dice">수동 주사위 값 (1~6)</label>
+    <div class="rowo">
+      <input id="dice" type="number" min="1" max="6" value="1" inputmode="numeric">
+      <button id="go">이동하기</button>
+    </div>
+    <button id="rollBtn">🎲 수동 주사위 굴리기</button>
+
+    <label class="opt">
+      <input type="checkbox" id="mission" checked>
+      <span>🛡 미션 모드<br>위기 칸에 멈추면 마이크로비트 미션(흔들기·A버튼)에 성공해야 피할 수 있어요.</span>
+    </label>
+
+    <div id="ask">
+      <p id="askText"></p>
+      <div class="prog" id="askProg" style="display:none"><i id="askProgFill"></i></div>
+      <div class="hint" id="askHint"></div>
+      <button id="askYes">성공 ✅</button><button id="askNo">실패 ❌</button>
+    </div>
+
+    <div id="msg">마이크로비트를 연결하고 <b>A+B 버튼</b>을 눌러 주사위를 굴려 보세요!<br>기기가 없으면 아래 <b>수동 주사위</b>를 쓰면 됩니다.</div>
+    <div id="log"></div>
+    <button id="sound">🔊 효과음 켜짐</button>
+    <button id="reset">처음부터</button>
+  </aside>
+
+  <main class="board" id="board"></main>
+</div>
+
+<div id="win"><div class="box">
+  <h2 id="winTitle"></h2>
+  <p>드림호가 새 행성에 무사히 도착했습니다! 🪐</p>
+  <button id="again">한 판 더</button>
+</div></div>
+
+<div id="toast"></div>
+
+<!-- ---------------- 마이크로비트 코딩 가이드 ---------------- -->
+<div id="guide">
+  <div class="sheet">
+    <button class="close" id="guideClose">닫기 ✕</button>
+    <h2>🎓 마이크로비트 코딩 가이드</h2>
+    <div class="gsub">메이크코드(MakeCode)에서 블루투스 신호를 보내는 코드를 10~15분 안에 완성합니다. · 중학교 3학년</div>
+
+    <h3><span class="step">0</span>준비물 확인</h3>
+    <ul>
+      <li>마이크로비트(가급적 V2) + USB 케이블 또는 배터리팩</li>
+      <li>크롬(Chrome)·엣지·웨일 브라우저가 설치된 노트북/크롬북 <b>(사파리·아이폰은 웹 블루투스 미지원)</b></li>
+      <li><code>makecode.microbit.org</code> 접속</li>
+    </ul>
+
+    <h3><span class="step">1</span>블루투스 확장 프로그램 추가</h3>
+    <ol>
+      <li>MakeCode에서 <b>새 프로젝트</b>를 만듭니다.</li>
+      <li>블록 목록 아래 <b>고급(Advanced) → 확장(Extensions)</b>을 누릅니다.</li>
+      <li><code>bluetooth</code>를 검색해 <b>Bluetooth</b> 확장을 추가합니다.</li>
+      <li>“radio 확장이 제거됩니다”라는 안내가 나오면 <b>확장 제거 후 Bluetooth 추가</b>를 누릅니다. (이 프로젝트에만 적용)</li>
+    </ol>
+
+    <h3><span class="step">2</span>페어링 없이 연결되게 설정 (핵심 꿀팁)</h3>
+    <ol>
+      <li>오른쪽 위 <b>⚙ 톱니바퀴 → 프로젝트 설정(Project Settings)</b>을 엽니다.</li>
+      <li><b>No Pairing Required: Anyone can connect via Bluetooth</b>를 켭니다.</li>
+      <li><b>저장(Save)</b>을 누릅니다.</li>
+    </ol>
+    <div class="warnbox"><p>이 설정을 켜지 않으면 브라우저에서 연결할 때 PIN·패턴 입력 창이 떠서 수업이 자주 멈춥니다. 프로젝트마다 따로 설정해야 하니 새 프로젝트를 만들 때마다 확인하세요.</p></div>
+
+    <h3><span class="step">3</span>블록 코딩 ① 시작 · A+B 버튼 = 주사위</h3>
+    <div class="blocks">
+      <div class="blk"><b>시작하면 (on start)</b><p>블루투스 <b>UART 서비스를 시작</b>합니다. → <code>bluetooth start uart service</code></p></div>
+      <div class="blk"><b>A+B 버튼을 누르면</b><p>1~6 중 무작위 수를 골라 <code>DICE:</code> 뒤에 붙여 문자열로 보냅니다.</p></div>
+      <div class="blk"><b>보내는 블록</b><p><code>bluetooth uart write string</code>에 <code>join("DICE:", pick random 1 to 6)</code>을 넣습니다.</p></div>
+    </div>
+
+    <h3><span class="step">4</span>블록 코딩 ② 흔들기 = 위기 탈출</h3>
+    <div class="blocks">
+      <div class="blk"><b>흔들면 (on shake)</b><p><code>SHAKE</code> 문자열을 보냅니다. → 웹 화면이 흔들기 횟수를 5번까지 자동으로 셉니다.</p></div>
+    </div>
+
+    <h3><span class="step">5</span>블록 코딩 ③ A버튼 = 에너지 방어막</h3>
+    <div class="blocks">
+      <div class="blk"><b>A 버튼을 누르면</b><p><code>SHIELD</code> 문자열을 보냅니다. → 운석·블랙홀 칸에서 피해를 막습니다.</p></div>
+    </div>
+
+    <h3><span class="step">6</span>전체 코드 (JavaScript 탭에 붙여넣기)</h3>
+    <p>블록으로 조립한 뒤 <b>JavaScript</b> 탭을 열면 아래와 같은 코드가 됩니다. 급할 때는 이 코드를 그대로 붙여넣어도 됩니다.</p>
+    <pre>bluetooth.startUartService()
+
+input.onButtonPressed(Button.AB, function () {
+    bluetooth.uartWriteString("DICE:" + randint(1, 6))
+})
+
+input.onGesture(Gesture.Shake, function () {
+    bluetooth.uartWriteString("SHAKE")
+})
+
+input.onButtonPressed(Button.A, function () {
+    bluetooth.uartWriteString("SHIELD")
+})
+
+bluetooth.onBluetoothConnected(function () {
+    basic.showIcon(IconNames.Yes)
+})
+
+bluetooth.onBluetoothDisconnected(function () {
+    basic.showIcon(IconNames.No)
+})</pre>
+
+    <h3><span class="step">7</span>마이크로비트에 넣기</h3>
+    <ol>
+      <li>USB 케이블로 마이크로비트를 컴퓨터에 연결합니다(드라이브 <code>MICROBIT</code>이 보이면 성공).</li>
+      <li><b>다운로드</b>를 눌러 <code>.hex</code> 파일을 받습니다.</li>
+      <li><code>MICROBIT</code> 드라이브로 파일을 끌어다 놓습니다. 노란 불이 깜빡인 뒤 웃는 얼굴이 나오면 완료!</li>
+    </ol>
+
+    <h3><span class="step">8</span>웹 화면과 연결하기</h3>
+    <ol>
+      <li>브라우저에서 <code>https://leeyoungui.github.io/dream-bt/</code> 를 엽니다.</li>
+      <li>오른쪽 위 <b>📡 마이크로비트 블루투스 연결</b>을 누릅니다.</li>
+      <li>목록에서 <b>BBC micro:bit [내 기기 이름]</b>을 고릅니다.</li>
+      <li>배지가 초록색 <b>연결됨</b>으로 바뀌면 성공! A+B를 눌러 주사위를 시험해 봅니다.</li>
+    </ol>
+
+    <h3><span class="step">9</span>신호 약속표</h3>
+    <table>
+      <tr><th>마이크로비트 조작</th><th>보내는 문자열</th><th>웹 화면 반응</th></tr>
+      <tr><td>A+B 버튼</td><td><code>DICE:1</code> ~ <code>DICE:6</code></td><td>그 수만큼 우주선이 자동으로 전진</td></tr>
+      <tr><td>흔들기 ×5</td><td><code>SHAKE</code></td><td>산소 부족·엔진 고장 칸에서 5회 세고 성공 판정</td></tr>
+      <tr><td>A 버튼</td><td><code>SHIELD</code></td><td>운석·궤도 이탈·블랙홀 칸에서 방어막 성공</td></tr>
+    </table>
+
+    <h3><span class="step">!</span>연결이 안 될 때</h3>
+    <ul>
+      <li><b>기기가 안 보여요</b> → 다른 앱/태블릿이 이미 그 마이크로비트에 연결되어 있지 않은지 확인하고, 그 연결을 해제합니다.</li>
+      <li><b>연결은 되는데 반응이 없어요</b> → “시작하면 UART 서비스 시작” 블록을 넣었는지, 코드를 다시 다운로드했는지 확인합니다.</li>
+      <li><b>PIN 창이 떠요</b> → 프로젝트 설정의 No Pairing Required를 켜고 다시 다운로드합니다.</li>
+      <li><b>수업이 급해요</b> → 화면의 <b>수동 주사위 / 성공 / 실패</b> 버튼으로 그대로 진행할 수 있습니다.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   드림호(Dream) 웹 블루투스 보드게임
+   - 원본: leeyoungui/dream (수동 조작판) 디자인·규칙 계승
+   - 추가: Web Bluetooth (마이크로비트 UART) 통신
+   ========================================================= */
+const GOAL = 30;
+const NAMES = ["1팀 · 초록 우주선", "2팀 · 빨간 우주선"];
+
+// 칸 이벤트: type = good(앞으로) | bad(뒤로) | rest(쉬기) | again(한 번 더)
+const EV = {
+  3:  {type:"good",  d:+3, icon:"⛽", label:"+3칸<br>연료 보급!", msg:"연료 보급 성공! 3칸 앞으로 이동합니다."},
+  7:  {type:"bad",   d:-3, icon:"☄️", label:"-3칸<br>운석 충돌", msg:"운석과 충돌했어요! 3칸 뒤로 밀려납니다.", mission:"A버튼을 눌러 방어막을 가동하세요!"},
+  10: {type:"rest",  icon:"🫧", label:"쉬기<br>산소 부족", msg:"산소가 부족해요. 다음 차례를 쉽니다.", mission:"마이크로비트를 5번 흔들어 산소를 복구하세요!"},
+  13: {type:"good",  d:+4, icon:"☀️", label:"+4칸<br>태양풍 가속!", msg:"태양풍을 타고 4칸 앞으로 쑥!"},
+  16: {type:"bad",   d:-2, icon:"🌀", label:"-2칸<br>궤도 이탈", msg:"궤도를 이탈했어요! 2칸 뒤로 이동합니다.", mission:"A버튼을 눌러 방어막을 가동하세요!"},
+  19: {type:"again", icon:"🔋", label:"한번더<br>재충전!", msg:"에너지 재충전 완료! 한 번 더 굴리세요."},
+  22: {type:"good",  d:+3, icon:"🤝", label:"+3칸<br>동료 지원!", msg:"동료 우주선이 도와줬어요! 3칸 앞으로."},
+  25: {type:"bad",   d:-4, icon:"🕳️", label:"-4칸<br>블랙홀", msg:"블랙홀에 끌려갑니다! 4칸 뒤로...", mission:"A버튼을 눌러 방어막을 가동하세요!"},
+  28: {type:"rest",  icon:"🔧", label:"쉬기<br>엔진 고장", msg:"엔진이 고장났어요. 다음 차례를 쉽니다.", mission:"마이크로비트를 5번 흔들어 엔진을 수리하세요!"},
+};
+const FILLERS = ["🌌","⭐","🛰️","🌠","🪐","✨"];
+
+const pos = [1,1], skip = [false,false];
+let turn = 0, busy = false, over = false;
+const cells = {}, tokenEls = [];
+
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* ---------- 효과음 (Web Audio, 파일 없이 합성) ---------- */
+let audioCtx = null, soundOn = true;
+function ac(){
+  if(!audioCtx){
+    const A = window.AudioContext || window.webkitAudioContext;
+    if(A) audioCtx = new A();
+  }
+  if(audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+  return audioCtx;
+}
+function tone(freq, start, dur, type="sine", vol=0.15, slideTo){
+  const c = ac();
+  if(!c || !soundOn) return;
+  const t = c.currentTime + start;
+  const o = c.createOscillator(), g = c.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(freq, t);
+  if(slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(c.destination);
+  o.start(t); o.stop(t + dur + 0.05);
+}
+const SFX = {
+  roll(){ tone(700,0,0.05,"square",0.07); tone(500,0.07,0.05,"square",0.07); },
+  step(n, back){                       // 칸을 한 칸 지날 때마다 "톡"
+    const base = back ? 420 : 520;
+    tone(base + (back ? -n*18 : n*22), 0, 0.11, "triangle", 0.13);
+  },
+  good(){ [523,659,784,1047].forEach((f,i)=>tone(f, i*0.09, 0.18, "square", 0.08)); },       // 상승 팡파르
+  bad(){ tone(320,0,0.55,"sawtooth",0.11,70); tone(160,0.05,0.5,"square",0.07,50); },        // 하강 경고음
+  rest(){ tone(330,0,0.25,"sine",0.14); tone(262,0.25,0.25,"sine",0.14); tone(196,0.5,0.45,"sine",0.14); },
+  again(){ [784,988,1175,1568].forEach((f,i)=>tone(f, i*0.06, 0.12, "triangle", 0.12)); },   // 반짝 충전음
+  ok(){ tone(880,0,0.12,"sine",0.14); tone(1320,0.12,0.28,"sine",0.14); },                   // 미션 성공
+  tick(){ tone(1046,0,0.06,"triangle",0.09); },                                              // 흔들기 카운트
+  link(){ tone(660,0,0.1,"triangle",0.12); tone(990,0.1,0.1,"triangle",0.12); tone(1320,0.2,0.22,"triangle",0.12); },
+  unlink(){ tone(420,0,0.14,"sine",0.12); tone(300,0.14,0.22,"sine",0.12); },
+  win(){
+    const seq = [[523,0],[523,.14],[523,.28],[659,.42],[784,.62],[659,.82],[784,1.0],[1047,1.25]];
+    seq.forEach(([f,t],i)=>tone(f, t, i===seq.length-1 ? 0.9 : 0.16, "square", 0.09));
+    [523,659,784,1047].forEach(f=>tone(f, 1.25, 1.1, "triangle", 0.07));
+  }
+};
+
+/* ---------- 보드 만들기 (뱀 모양, 아래→위) ---------- */
+function buildBoard(){
+  const board = $("board");
+  board.innerHTML = "";
+  for(let r=4; r>=0; r--){
+    for(let c=0; c<6; c++){
+      const n = r*6 + (r%2===0 ? c+1 : 6-c);
+      const el = document.createElement("div");
+      el.className = "cell";
+      let icon, label = "";
+      if(n===1){ el.classList.add("start"); icon="🌍"; label="출발!<br>지구"; }
+      else if(n===GOAL){ el.classList.add("goal"); icon="🪐"; label="도착!<br>새 행성"; }
+      else if(EV[n]){ el.classList.add(EV[n].type); icon=EV[n].icon; label=EV[n].label; }
+      else { icon=FILLERS[n%FILLERS.length]; label=""; }
+      el.innerHTML = `<span class="n">${n}</span><span class="ic">${icon}</span><span class="lb">${label}</span><div class="tokens"></div>`;
+      board.appendChild(el);
+      cells[n] = el;
+    }
+  }
+}
+
+function makeTokens(){
+  [0,1].forEach(i=>{
+    const t = document.createElement("div");
+    t.className = "token";
+    t.style.setProperty("--c", i===0 ? "var(--p0)" : "var(--p1)");
+    t.textContent = i===0 ? "🚀" : "🛸";
+    tokenEls[i] = t;
+  });
+}
+function place(i){
+  cells[pos[i]].querySelector(".tokens").appendChild(tokenEls[i]);
+}
+
+/* ---------- 표시 ---------- */
+function say(t){ $("msg").innerHTML = t; }
+function log(t){
+  const d = document.createElement("div");
+  d.textContent = "• " + t;
+  $("log").prepend(d);
+}
+function refresh(){
+  [0,1].forEach(i=>{
+    $("pl"+i).classList.toggle("active", turn===i && !over);
+    $("st"+i).textContent = pos[i]===1 ? "출발 대기" : `${pos[i]}번 칸` + (skip[i] ? " · 다음 차례 쉬기" : "");
+  });
+  $("go").disabled = busy || over;
+  $("rollBtn").disabled = busy || over;
+}
+
+/* ---------- 이동 ---------- */
+async function walk(i, target){
+  const dir = target > pos[i] ? 1 : -1;
+  let n = 0;
+  while(pos[i] !== target){
+    pos[i] += dir;
+    place(i);
+    SFX.step(n++, dir < 0);
+    refresh();
+    await sleep(260);
+  }
+}
+
+/* ---------- 미션 (수동 성공/실패 + 블루투스 자동 판정) ---------- */
+let pending = null;   // {kind:'bad'|'rest', count, need, resolve}
+
+function askMission(kind, text, hint){
+  return new Promise(resolve=>{
+    const need = kind === "rest" ? 5 : 0;
+    pending = {kind, need, count:0, resolve};
+
+    $("askText").textContent = text;
+    $("askHint").textContent = hint;
+    $("askProg").style.display = kind === "rest" ? "block" : "none";
+    $("askProgFill").style.width = "0%";
+    $("ask").style.display = "block";
+    $("askYes").textContent = kind === "rest" ? "복구 성공 ✅" : "방어 성공 ✅";
+    $("askNo").textContent  = kind === "rest" ? "실패 ❌" : "피격 ❌";
+  });
+}
+function closeAsk(){ $("ask").style.display = "none"; }
+function resolveMission(v){
+  if(!pending) return;
+  const p = pending;
+  pending = null;
+  closeAsk();
+  p.resolve(v);
+}
+function shakeProgress(){
+  if(!pending || pending.kind !== "rest") return;
+  pending.count++;
+  if(pending.count > pending.need) pending.count = pending.need;
+  $("askProgFill").style.width = (pending.count / pending.need * 100) + "%";
+  $("askHint").textContent = `흔들기 ${pending.count} / ${pending.need} — 마이크로비트를 계속 흔드세요!`;
+  SFX.tick();
+  if(pending.count >= pending.need){
+    say("🫧 산소·엔진 복구 신호 수신! 미션 성공!");
+    setTimeout(()=>resolveMission(true), 260);
+  }
+}
+
+$("askYes").onclick = () => resolveMission(true);
+$("askNo").onclick  = () => resolveMission(false);
+
+/* =========================================================
+   📡 Web Bluetooth (마이크로비트 UART 서비스)
+   ========================================================= */
+const UART_SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+const UART_TX = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"; // 웹 → 마이크로비트 (쓰기)
+const UART_RX = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; // 마이크로비트 → 웹 (알림)
+
+const BT = {
+  device:null, tx:null, rx:null,
+  connected:false, connecting:false,
+  buf:"", decoder:new TextDecoder("utf-8")
+};
+
+function setBadge(kind, text){
+  const b = $("btBadge");
+  b.className = "badge" + (kind === "on" ? " on" : kind === "wait" ? " wait" : kind === "err" ? " err" : "");
+  $("btBadgeText").textContent = text;
+}
+function showLast(cmd){
+  $("lastCmd").innerHTML = "최근 수신 신호: <b>" + (cmd || "없음") + "</b>";
+}
+let toastTimer = null;
+function toast(text, warn){
+  const t = $("toast");
+  t.textContent = text;
+  t.className = (warn ? "warn " : "") + "show";
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>{ t.className = ""; }, 1500);
+}
+
+async function connectBT(){
+  if(!("bluetooth" in navigator)){
+    setBadge("err","이 브라우저는 웹 블루투스 미지원");
+    toast("크롬·엣지·웨일에서 열어 주세요", true);
+    $("guide").style.display = "block";
+    return;
+  }
+  if(BT.connected) { disconnectBT(); return; }
+
+  BT.connecting = true;
+  $("btConnect").disabled = true;
+  setBadge("wait","마이크로비트 찾는 중…");
+  try{
+    const device = await navigator.bluetooth.requestDevice({
+      filters: [ {namePrefix:"BBC micro:bit"}, {services:[UART_SERVICE]} ],
+      optionalServices: [UART_SERVICE]
+    });
+    BT.device = device;
+    device.addEventListener("gattserverdisconnected", onDisconnected);
+
+    setBadge("wait","연결 중… (10초 정도 걸려요)");
+    const server = await device.gatt.connect();
+    const service = await server.getPrimaryService(UART_SERVICE);
+    BT.tx = await service.getCharacteristic(UART_TX);
+    BT.rx = await service.getCharacteristic(UART_RX);
+    await BT.rx.startNotifications();
+    BT.rx.addEventListener("characteristicvaluechanged", onNotify);
+
+    BT.connected = true;
+    setBadge("on","연결됨 · " + (device.name || "micro:bit"));
+    $("btConnect").textContent = "🔌 연결 해제";
+    log("📡 " + (device.name || "micro:bit") + " 연결 완료");
+    say("📡 마이크로비트와 연결되었습니다!<br><b>A+B 버튼</b>으로 주사위를 굴려 보세요.");
+    SFX.link();
+    toast("마이크로비트 연결 완료!");
+  }catch(err){
+    console.warn(err);
+    if(err && err.name === "NotFoundError"){
+      setBadge("err","기기를 선택하지 않았어요");
+      toast("기기 선택이 취소되었어요", true);
+    } else if(err && /cancell?ed/i.test(err.message||"")){
+      setBadge("err","기기 선택이 취소됐어요");
+    } else {
+      setBadge("err","연결 실패 · 다시 시도해 주세요");
+      toast("연결 실패 — 코딩 가이드의 점검 항목을 확인하세요", true);
+      log("연결 오류: " + (err && err.message ? err.message : err));
+    }
+    $("btConnect").textContent = "📡 마이크로비트 블루투스 연결";
+  }finally{
+    BT.connecting = false;
+    $("btConnect").disabled = false;
+  }
+}
+
+function disconnectBT(){
+  try{
+    if(BT.device && BT.device.gatt && BT.device.gatt.connected) BT.device.gatt.disconnect();
+  }catch(e){}
+  onDisconnected();
+}
+
+function onDisconnected(){
+  const wasConnected = BT.connected;
+  BT.connected = false; BT.tx = null; BT.rx = null;
+  setBadge("", "블루투스 연결 안 됨");
+  $("btConnect").textContent = "📡 마이크로비트 블루투스 연결";
+  if(wasConnected){
+    log("📡 연결이 끊겼습니다.");
+    SFX.unlink();
+    toast("연결이 끊겼어요 — 수동 버튼으로 계속할 수 있어요", true);
+  }
+}
+
+function onNotify(event){
+  const v = event.target.value;
+  const text = BT.decoder.decode(v);
+  feed(text);
+}
+
+/* ---------- 수신 문자열 파서 ----------
+   마이크로비트는 줄바꿈 없이 "DICE:5SHAKE"처럼 이어 보낼 수 있어서
+   알려진 명령 토큰을 앞에서부터 찾아 잘라 냅니다. */
+const PREFIX_OK = /^(D|DI|DIC|DICE|DICE:|S|SH|SHA|SHAK|SHAKE|SHI|SHIE|SHIEL|SHIELD)?$/;
+
+function feed(raw){
+  BT.buf = (BT.buf + raw).toUpperCase().replace(/[\r\n\t ]+/g, "");
+  if(BT.buf.length > 120) BT.buf = BT.buf.slice(-120);
+
+  const re = /DICE(?::([1-6]))?|SHAKE|SHIELD|(?<![A-Z])A(?![A-Z])/g;
+  let m, last = 0;
+  while((m = re.exec(BT.buf)) !== null){
+    last = re.lastIndex;
+    dispatch(m[0], m[1]);
+  }
+  const tail = BT.buf.slice(last);
+  BT.buf = PREFIX_OK.test(tail) ? tail : "";
+}
+
+function dispatch(cmd, num){
+  if(cmd.startsWith("DICE")){
+    showLast("DICE:" + (num || "?"));
+    onDice(num ? parseInt(num,10) : randDie());
+  } else if(cmd === "SHAKE"){
+    showLast("SHAKE");
+    onShake();
+  } else if(cmd === "SHIELD" || cmd === "A"){
+    showLast(cmd === "A" ? "A (방어막)" : "SHIELD");
+    onShield();
+  }
+}
+
+function randDie(){ return Math.floor(Math.random()*6)+1; }
+
+function onDice(v){
+  if(over){ toast("게임이 끝났어요 — 처음부터 눌러 주세요", true); return; }
+  if(busy){ toast("이동 중입니다 — 잠시만요", true); return; }
+  $("dice").value = v;
+  roll();
+}
+
+function onShake(){
+  if(pending && pending.kind === "rest"){ shakeProgress(); return; }
+  if(pending && pending.kind === "bad"){
+    toast("이 칸은 A버튼(방어막) 미션이에요!", true);
+    return;
+  }
+  toast("흔들기 신호 수신 — 지금은 미션 없음");
+}
+
+function onShield(){
+  if(pending && pending.kind === "bad"){
+    say("🛡 방어막 신호 수신!");
+    setTimeout(()=>resolveMission(true), 220);
+    return;
+  }
+  if(pending && pending.kind === "rest"){
+    toast("이 칸은 흔들기 5번 미션이에요!", true);
+    return;
+  }
+  toast("방어막 신호 수신 — 지금은 미션 없음");
+}
+
+/* ---------- 게임 진행 ---------- */
+function nextTurn(){
+  turn = 1 - turn;
+  if(skip[turn]){
+    skip[turn] = false;
+    log(`${NAMES[turn]}: 이번 차례는 쉬어요.`);
+    say(`${NAMES[turn]}은(는) 이번 차례를 쉽니다. ${NAMES[1-turn]} 차례!`);
+    turn = 1 - turn;
+  }
+}
+
+async function roll(){
+  if(busy || over) return;
+  const v = parseInt($("dice").value, 10);
+  if(!(v>=1 && v<=6)){ say("⚠️ 주사위 값은 1~6만 입력할 수 있어요."); return; }
+
+  busy = true; refresh();
+  SFX.roll();
+  const p = turn;
+  log(`${NAMES[p]}: 주사위 ${v}`);
+  const target = Math.min(pos[p] + v, GOAL);
+  say(`${NAMES[p]} — 주사위 <b>${v}</b>! 이동합니다...`);
+  await walk(p, target);
+
+  if(pos[p] >= GOAL){ return win(p); }
+
+  const ev = EV[pos[p]];
+  if(!ev){
+    say(`${pos[p]}번 칸에 도착! 아무 일도 없어요.`);
+    nextTurn();
+  } else {
+    say(`<b>${ev.icon} ${ev.msg}</b>`);
+    log(`${pos[p]}번 칸: ${ev.msg}`);
+    const useMission = $("mission").checked;
+
+    if(ev.type==="good"){
+      SFX.good();
+      await sleep(700);
+      await walk(p, pos[p] + ev.d);
+      nextTurn();
+    } else if(ev.type==="bad"){
+      let avoided = false;
+      if(useMission){
+        avoided = await askMission("bad", ev.msg + " " + ev.mission,
+          BT.connected ? "🛡 마이크로비트 A버튼을 누르면 자동 성공 · 안 되면 아래 버튼"
+                       : "아래 성공/실패 버튼으로 판정하세요");
+      }
+      if(avoided){ SFX.ok(); say("🛡 방어 성공! 피해 없이 통과했어요."); log("방어 성공!"); }
+      else { SFX.bad(); await sleep(700); await walk(p, Math.max(1, pos[p] + ev.d)); }
+      nextTurn();
+    } else if(ev.type==="rest"){
+      let fixed = false;
+      if(useMission){
+        fixed = await askMission("rest", ev.msg + " " + ev.mission,
+          BT.connected ? "🫧 마이크로비트를 5번 흔들면 자동으로 채워집니다"
+                       : "5번 흔들었으면 성공, 아니면 실패를 누르세요");
+      }
+      if(fixed){ SFX.ok(); say("🔧 복구 성공! 쉬지 않고 계속 갑니다."); log("복구 성공!"); }
+      else { SFX.rest(); skip[p] = true; }
+      nextTurn();
+    } else if(ev.type==="again"){
+      SFX.again(); /* 같은 팀이 한 번 더 */
+    }
+  }
+  if(!over){
+    const t = turn;
+    $("msg").innerHTML += `<br>▶ <b>${NAMES[t]}</b> 차례`;
+  }
+  busy = false;
+  refresh();
+  $("dice").focus(); $("dice").select();
+}
+
+function win(p){
+  over = true; busy = false; refresh();
+  SFX.win();
+  log(`🏆 ${NAMES[p]} 도착!`);
+  $("winTitle").textContent = `🏆 ${NAMES[p]} 도착!`;
+  $("win").style.display = "flex";
+}
+
+function resetGame(){
+  pos[0]=pos[1]=1; skip[0]=skip[1]=false; turn=0; busy=false; over=false;
+  $("win").style.display = "none";
+  closeAsk(); pending = null;
+  $("log").innerHTML = "";
+  $("dice").value = 1;
+  place(0); place(1);
+  say("마이크로비트를 연결하고 <b>A+B 버튼</b>을 눌러 주사위를 굴려 보세요!<br>기기가 없으면 아래 <b>수동 주사위</b>를 쓰면 됩니다.");
+  refresh();
+}
+
+/* ---------- 시작 ---------- */
+buildBoard(); makeTokens(); place(0); place(1); refresh();
+$("go").onclick = roll;
+$("rollBtn").onclick = () => {
+  if(busy || over) return;
+  $("dice").value = randDie();
+  roll();
+};
+$("dice").addEventListener("keydown", e => { if(e.key==="Enter") roll(); });
+$("reset").onclick = resetGame;
+$("sound").onclick = () => {
+  soundOn = !soundOn;
+  $("sound").textContent = soundOn ? "🔊 효과음 켜짐" : "🔇 효과음 꺼짐";
+  if(soundOn){ ac(); SFX.ok(); }
+};
+$("again").onclick = resetGame;
+$("btConnect").onclick = connectBT;
+$("guideBtn").onclick = () => { $("guide").style.display = "block"; };
+$("guideClose").onclick = () => { $("guide").style.display = "none"; };
+$("guide").addEventListener("click", e => { if(e.target === $("guide")) $("guide").style.display = "none"; });
+
+if(!("bluetooth" in navigator)){
+  setBadge("err","이 브라우저는 웹 블루투스 미지원");
+} else {
+  setBadge("", "블루투스 연결 안 됨");
+}
+</script>
+</body>
+</html>

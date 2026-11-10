@@ -3,7 +3,7 @@
 마이크로비트를 **웹 블루투스 컨트롤러**로 쓰는 수업용 우주 보드게임입니다.
 원본 수동 조작판 [`leeyoungui/dream`](https://github.com/leeyoungui/dream)의 디자인과 규칙을 그대로 계승하고, 블루투스 통신만 더했습니다. 원본 저장소는 건드리지 않았습니다.
 
-- 게임 주소: **https://leeyoungui.github.io/dream-bt/**
+- 게임 주소: **https://leeyoungui.github.io/dream_bt/**
 - 대상: 중학교 3학년 (2차시 연강 가능)
 - 브라우저: 크롬 · 엣지 · 웨일 (사파리·iOS는 웹 블루투스 미지원)
 
